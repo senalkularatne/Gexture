@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Gexture</title>
+	<link rel="stylesheet" type="text/css" href="gett.css">
+    <!-- Bootstrap core CSS -->
+<!--     <link href="bootstrap.min.css" rel="stylesheet">
+ -->
+
+     <script src="http://cdnjs.cloudflare.com/ajax/libs/three.js/r67/three.js"></script>
+  <script src="//js.leapmotion.com/leap-0.6.3.min.js"></script>
+  <script src="http://js.leapmotion.com/leap-plugins-0.1.6.1.js"></script>
+  <script src="http://js.leapmotion.com/leap.rigged-hand-0.1.4.min.js"></script>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+  <script src="mqttws31.js"></script>
+   <!-- Font Awesome -->
+    <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet" integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN" crossorigin="anonymous">
+  
+</head>
+<body>
+
+<!--************************************
+               Navbar
+*************************************-->
+
+<div class="container">
+
+<header>
+<h1 class="red cool-font">Gexture</h1>
+<hr>
+</header>
+
+<div class="loader-ring">
+  <div class="loader-ring-light"></div>
+  <div class="loader-ring-track"></div>
+  <h2 id="textDiv"></h2>  
+</div>
+
+<footer class="footer">
+    <div class="col-xs-12 footer">
+        <div class="container ">
+            <div class="copyright">
+                <p>&copy; 2017 
+                <a target="_blank" href="https://github.com/senalkularatne"><span class="red">Senal | </span></a>
+                <a target="_blank" href="https://github.com/HarryAKA"><span class="red">Harry | </span></a>
+                <a target="_blank" href="https://github.com/MhndMousa"><span class="red">Muhannad | </span></a>
+                <a target="_blank" href="https://github.com/zeusofcs"><span class="red">Dorian | </span></a>
+
+                Made with lots of <i class="fa fa-coffee" aria-hidden="true"></i> </p>
+            </div>
+        </div>
+    </div>
+</footer> <!-- /. Footer -->
+
+</div>
+
+<!-- <script type="text/javascript" src="gett.js"></script>
+ -->
+</body>
+<script>
+
+
+
+
+  
+var options = { enableGestured: true };
+//each element of "fingers" is a "closed-ness" measure. 0 is extended, 1 is semi, 2 is closed
+var alphabet = {
+  "A": { fingers: [1, 2, 2, 2, 2] }, //first finger cant be closed
+  "B": { fingers: [1, 0, 0, 0, 0] },
+  "C": { fingers: [1, 1, 1, 1, 1] },
+  "D": { fingers: [2, 0, 1, 1, 1] },
+  "E": { fingers: [0, 2, 2, 2, 2] },
+  "F": { fingers: [1, 2, 0, 0, 0] },
+  // "G": { fingers: [2, 1, 2, 2, 2] }, //hand on side
+  // "H": { fingers: [2, 1, 1, 2, 2] }, //hand on side
+  "I": { fingers: [1, 2, 2, 2, 0] },
+  // "J": { fingers: [1, 2, 2, 2, 0] }, //movement in J form;  hand in between front and side
+  // "K": { fingers: [1, 0, 1, 2, 2] }, //hand in between front and side
+  "L": { fingers: [0, 0, 2, 2, 2] },
+  // "M": { fingers: [2, 2, 2, 2, 2] }
+  // "M": { fingers: [0, 0, 0, 0, 0] },
+  "hello": { fingers: [0, 0, 0, 0, 0] },
+  // "N": { fingers: [1, 2, 2, 2, 2] },
+  "O": { fingers: [1, 0, 1, 1, 0] },
+  // "P": { fingers: [1, 0, 1, 2, 2] }, //hand facing down
+  // "Q": { fingers: [1, 1, 2, 2, 2] }, //hand facing down
+  "R": { fingers: [1, 0, 0, 2, 2] },
+  // "S": { fingers: [2, 2, 2, 2, 2] },
+  // "T": { fingers: [1, 2, 2, 2, 2] },
+  // "U": { fingers: [1, 0, 0, 2, 2], fingersPosition: "together" }, //fingers together
+  // "V": { fingers: [1, 0, 0, 2, 2], fingersPosition: "separate" }, //fingers separate
+  "W": { fingers: [1, 0, 0, 0, 1] },
+  // "X": { fingers: [2, 1, 2, 2, 2] },
+  "Y": { fingers: [0, 2, 2, 2, 0] },
+  // "Z": { fingers: [2, 1, 2, 2, 2] }, //movement in Z form
+};
+var fingerNames = ["thumb", "index", "middle", "ring", "pinky"];
+
+//general functions
+function getDotProduct(handPalmNormal, fingerDirection) {
+  result = 0.0;
+  result += handPalmNormal[0] * fingerDirection[0];
+  result += handPalmNormal[1] * fingerDirection[1];
+  result += handPalmNormal[2] * fingerDirection[2];
+  return result;
+}
+
+
+function getFingerStatus(finger, hand) {
+  var fingerPosition = getFingerPosition(finger, hand);
+
+  if(fingerPosition === letter.fingers[finger.type]) {
+    //finger correct!
+    return true;
+  }else if (fingerPosition > letter.fingers[finger.type]) {
+    //finger too closed
+    return false;
+  }else {
+    //finger too extended
+    return false;
+  }
+}
+
+function getFingerPosition(finger, hand) {
+  if(finger.type != 0) {
+    var dotProduct = getDotProduct(hand.palmNormal, finger.direction);
+
+    if (dotProduct < 0.6 && finger.extended) {
+      return 0;
+    } else if (dotProduct < 0.85 && !finger.extended) {
+      return 2;
+    } else {
+      return 1;
+    }
+  } else { //thumb is different
+    var dotProduct = getDotProduct(hand.direction, finger.direction);
+
+    if (dotProduct < 0.9 && finger.extended) {
+      return 0;
+    } else if (dotProduct < 0.8 && !finger.extended) {
+      return 2;
+    } else {
+      return 1;
+    }
+  }
+}
+
+var controller = new Leap.Controller();
+controller.connect();
+
+Leap.loop(options, function(frame) {
+
+  //making sure leap motion is connected
+  for(var i = 0; i < frame.hands.length; i++) {
+    console.log("Checking frames");
+    hand = frame.hands[i];
+    fingers = hand.fingers;
+    var correctFingers = 0;
+
+    // var lastFrameid = frame.id();
+
+    for (var letter in alphabet) {
+      if(getFingerPosition(fingers[0], hand) === alphabet[letter].fingers[0] &&
+      getFingerPosition(fingers[1], hand) === alphabet[letter].fingers[1] &&
+      getFingerPosition(fingers[2], hand) === alphabet[letter].fingers[2] &&
+      getFingerPosition(fingers[3], hand) === alphabet[letter].fingers[3] &&
+      getFingerPosition(fingers[4], hand) === alphabet[letter].fingers[4]) {
+        console.log("letter");
+        publishMQTT(letter);
+var divText = document.getElementById("textDiv");  
+
+divText.textContent = letter;
+
+      // Connect leapmotion to Bluemix
+
+      var mqttClient;
+      var mqttConfig = {
+        deviceId : "randomLeap", // enter your device id
+        deviceType : "leapmotion",
+        apiToken : "+OU&Sy+Mfigbp9tM72", // enter your authentication token
+        orgId : "yhfjr8", // enter your organization id
+        port : 1883
+      };
+
+      function publishMQTT(commandToBeSent) {
+        var mqttMessage;
+        if (mqttClient) {
+          mqttMessage = new Paho.MQTT.Message(JSON.stringify({
+            "event" : commandToBeSent
+          }));
+          mqttMessage.destinationName = "iot-2/evt/partial/fmt/json";
+          mqttClient.send(mqttMessage);
+        }
+      }
+
+      function connectMQTT() {
+        var clientId = ['d', mqttConfig.orgId, mqttConfig.deviceType, mqttConfig.deviceId].join(':');
+        mqttClient = new Paho.MQTT.Client(mqttConfig.orgId + ".messaging.internetofthings.ibmcloud.com", mqttConfig.port, clientId);
+        mqttClient.connect({
+          userName: "use-token-auth",
+          password: mqttConfig.apiToken,
+          onSuccess: function() {
+            debugger;
+            message.innerHTML =  "Message: Connected to Bluemix. Ready for next gesture";
+          }
+        });
+      }
+
+      connectMQTT();
+
+
+        // setTimeout(function() {
+        //   message.innerHTML =  "Message: Ready for next gesture";
+        //   commandBeingExecuted = false;
+        // }, 3000);
+      }}
+
+
+
+    }
+  });
+
+  </script>
+</html>
